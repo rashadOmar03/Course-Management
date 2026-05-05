@@ -1,6 +1,3 @@
-Name: Omar Mohamed Rashad
-ID: 211003802
-
 # Course Management — Full Stack
 
 A full-stack Course Management application built with **ASP.NET Core 8 Web API** (backend) and **React + Vite + Axios** (frontend).
