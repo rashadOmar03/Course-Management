@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class StudentController : ControllerBase
 {
     private readonly StudentService _service;
@@ -14,10 +14,7 @@ public class StudentController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get()
-    {
-        return Ok(await _service.GetAll());
-    }
+    public async Task<IActionResult> Get() => Ok(await _service.GetAll());
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
@@ -27,25 +24,14 @@ public class StudentController : ControllerBase
         return Ok(student);
     }
 
-    [HttpPost]
-    public async Task<IActionResult> Create(CreateStudentDto dto)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        await _service.Add(dto);
-        return Ok("Student created");
-    }
-
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, CreateStudentDto dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var ok = await _service.Update(id, dto);
-        if (!ok) return NotFound();
-        return Ok("Student updated");
+        var (ok, error) = await _service.Update(id, dto);
+        if (!ok) return BadRequest(new { message = error });
+        return Ok(new { message = "Student updated." });
     }
 
     [HttpDelete("{id}")]
@@ -53,6 +39,6 @@ public class StudentController : ControllerBase
     {
         var ok = await _service.Delete(id);
         if (!ok) return NotFound();
-        return Ok("Student deleted");
+        return Ok(new { message = "Student deleted." });
     }
 }

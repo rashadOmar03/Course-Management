@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createStudent } from '../services/studentService.js';
-import Alert from '../components/Alert.jsx';
+import { createInstructor } from '../../services/instructorService.js';
+import Alert from '../../components/Alert.jsx';
 
-export default function StudentCreate() {
+export default function AdminInstructorCreate() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '' });
+  const [form, setForm] = useState({ name: '', email: '', bio: '' });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) => {
@@ -18,28 +17,20 @@ export default function StudentCreate() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
-    if (!form.name.trim()) {
-      setError('Name is required.');
-      return;
-    }
+    if (!form.name.trim() || !form.email.trim())
+      return setError('Name and email are required.');
 
     setSubmitting(true);
     try {
-      await createStudent({
+      await createInstructor({
         name: form.name.trim(),
-        email: form.email.trim()
+        email: form.email.trim(),
+        bio: form.bio.trim(),
       });
-      setSuccess('Student created! Redirecting...');
-      setTimeout(() => navigate('/students'), 800);
+      navigate('/admin/instructors');
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.response?.data ||
-          err.message ||
-          'Failed to create student.'
-      );
+      setError(err.response?.data?.message || 'Failed to create instructor.');
     } finally {
       setSubmitting(false);
     }
@@ -48,15 +39,17 @@ export default function StudentCreate() {
   return (
     <div style={{ maxWidth: 560 }}>
       <div className="page-header">
-        <h1>New Student</h1>
-        <Link to="/students" className="btn btn-secondary">
+        <h1>New Instructor</h1>
+        <Link to="/admin/instructors" className="btn btn-secondary">
           Cancel
         </Link>
       </div>
 
       <div className="card">
+        <Alert type="info">
+          Admin-created instructors are automatically approved.
+        </Alert>
         <Alert type="error">{error}</Alert>
-        <Alert type="success">{success}</Alert>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -68,13 +61,12 @@ export default function StudentCreate() {
               className="form-control"
               value={form.name}
               onChange={handleChange}
-              maxLength={100}
               required
+              maxLength={100}
             />
           </div>
-
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email *</label>
             <input
               id="email"
               name="email"
@@ -82,16 +74,23 @@ export default function StudentCreate() {
               className="form-control"
               value={form.email}
               onChange={handleChange}
-              placeholder="student@example.com"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="bio">Bio</label>
+            <textarea
+              id="bio"
+              name="bio"
+              className="form-control"
+              value={form.bio}
+              onChange={handleChange}
+              rows={3}
             />
           </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={submitting}
-          >
-            {submitting ? 'Creating...' : 'Create Student'}
+          <button type="submit" className="btn btn-primary" disabled={submitting}>
+            {submitting ? 'Creating...' : 'Create Instructor'}
           </button>
         </form>
       </div>

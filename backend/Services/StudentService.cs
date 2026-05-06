@@ -13,6 +13,7 @@ public class StudentService
     {
         return await _context.Students
             .AsNoTracking()
+            .OrderBy(s => s.Id)
             .Select(s => new StudentResponseDto
             {
                 Id = s.Id,
@@ -36,34 +37,33 @@ public class StudentService
             .FirstOrDefaultAsync();
     }
 
-    public async Task Add(CreateStudentDto dto)
-    {
-        var student = new Student
-        {
-            Name = dto.Name,
-            Email = dto.Email
-        };
-
-        _context.Students.Add(student);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task<bool> Update(int id, CreateStudentDto dto)
+    public async Task<(bool Ok, string? Error)> Update(int id, CreateStudentDto dto)
     {
         var student = await _context.Students.FindAsync(id);
-        if (student == null) return false;
+        if (student == null) return (false, "Student not found.");
 
-        student.Name = dto.Name;
-        student.Email = dto.Email;
+        var newEmail = dto.Email?.Trim() ?? string.Empty;
+        if (!string.Equals(student.Email, newEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            var emailTaken = await _context.Students
+                .AnyAsync(s => s.Id != id && s.Email == newEmail);
+            if (emailTaken) return (false, "Email already used by another student.");
+        }
 
+        student.Name = dto.Name.Trim();
+        student.Email = newEmail;
         await _context.SaveChangesAsync();
-        return true;
+        return (true, null);
     }
 
     public async Task<bool> Delete(int id)
     {
         var student = await _context.Students.FindAsync(id);
         if (student == null) return false;
+
+        // detach linked user accounts
+        var users = _context.Users.Where(u => u.StudentId == id);
+        foreach (var user in users) user.StudentId = null;
 
         _context.Students.Remove(student);
         await _context.SaveChangesAsync();

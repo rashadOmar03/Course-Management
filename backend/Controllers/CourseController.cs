@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CourseController : ControllerBase
 {
     private readonly CourseService _service;
@@ -12,10 +14,7 @@ public class CourseController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get()
-    {
-        return Ok(await _service.GetAll());
-    }
+    public async Task<IActionResult> Get() => Ok(await _service.GetAll());
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
@@ -26,31 +25,33 @@ public class CourseController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create(CreateCourseDto dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        await _service.Add(dto);
-        return Ok("Course created");
+        var (result, error) = await _service.Add(dto);
+        if (error != null) return BadRequest(new { message = error });
+        return Ok(result);
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, CreateCourseDto dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var ok = await _service.Update(id, dto);
-        if (!ok) return NotFound();
-        return Ok("Course updated");
+        var (ok, error) = await _service.Update(id, dto);
+        if (!ok) return BadRequest(new { message = error });
+        return Ok(new { message = "Course updated." });
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var ok = await _service.Delete(id);
         if (!ok) return NotFound();
-        return Ok("Course deleted");
+        return Ok(new { message = "Course deleted." });
     }
 }

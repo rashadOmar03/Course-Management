@@ -4,5 +4,5 @@ public class InstructorProfile
     public string Bio { get; set; } = string.Empty;
 
     public int InstructorId { get; set; }
-    public Instructor Instructor { get; set; }
+    public Instructor? Instructor { get; set; }
 }

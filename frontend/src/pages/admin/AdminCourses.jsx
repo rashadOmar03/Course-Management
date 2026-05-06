@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCourses, deleteCourse } from '../services/courseService.js';
-import Loader from '../components/Loader.jsx';
-import Alert from '../components/Alert.jsx';
+import { getCourses, deleteCourse } from '../../services/courseService.js';
+import Loader from '../../components/Loader.jsx';
+import Alert from '../../components/Alert.jsx';
 
-export default function CoursesList() {
+export default function AdminCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,14 +14,9 @@ export default function CoursesList() {
     setLoading(true);
     setError('');
     try {
-      const data = await getCourses();
-      setCourses(data);
+      setCourses(await getCourses());
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          'Failed to load courses.'
-      );
+      setError(err.response?.data?.message || 'Failed to load courses.');
     } finally {
       setLoading(false);
     }
@@ -32,17 +27,14 @@ export default function CoursesList() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this course?')) return;
+    if (!confirm('Delete this course? Enrolled students will be removed too.'))
+      return;
     try {
       await deleteCourse(id);
-      setInfo('Course deleted successfully.');
+      setInfo('Course deleted.');
       setCourses((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          'Failed to delete course.'
-      );
+      setError(err.response?.data?.message || 'Failed to delete course.');
     }
   };
 
@@ -50,7 +42,7 @@ export default function CoursesList() {
     <div>
       <div className="page-header">
         <h1>Courses</h1>
-        <Link to="/courses/new" className="btn btn-primary">
+        <Link to="/admin/courses/new" className="btn btn-primary">
           + New Course
         </Link>
       </div>
@@ -62,15 +54,16 @@ export default function CoursesList() {
         <Loader text="Loading courses..." />
       ) : courses.length === 0 ? (
         <div className="card center muted">
-          No courses yet. Create your first one!
+          No courses yet. Create the first one!
         </div>
       ) : (
         <table className="table">
           <thead>
             <tr>
-              <th style={{ width: 80 }}>ID</th>
+              <th style={{ width: 60 }}>ID</th>
               <th>Title</th>
               <th>Instructor</th>
+              <th style={{ width: 110 }}>Enrolled</th>
               <th style={{ width: 200 }}>Actions</th>
             </tr>
           </thead>
@@ -80,10 +73,11 @@ export default function CoursesList() {
                 <td>{c.id}</td>
                 <td>{c.title}</td>
                 <td>{c.instructorName || <span className="muted">—</span>}</td>
+                <td>{c.enrollmentCount}</td>
                 <td>
                   <div className="btn-row">
                     <Link
-                      to={`/courses/${c.id}`}
+                      to={`/admin/courses/${c.id}`}
                       className="btn btn-secondary"
                     >
                       Edit

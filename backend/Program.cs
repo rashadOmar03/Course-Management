@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Linq;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,6 +45,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Services
 builder.Services.AddScoped<StudentService>();
 builder.Services.AddScoped<CourseService>();
+builder.Services.AddScoped<InstructorService>();
+builder.Services.AddScoped<EnrollmentService>();
+builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtService>();
 
 // CORS - allow the React dev server (Vite default) to call the API
@@ -65,8 +67,8 @@ builder.Services.AddCors(options =>
 });
 
 // Authentication
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -74,10 +76,11 @@ builder.Services.AddAuthentication("Bearer")
             ValidateAudience = false,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("THIS_IS_A_SUPER_SECRET_KEY_123456789"))
+                Encoding.UTF8.GetBytes(JwtService.SecretKey))
         };
     });
 
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 
 var app = builder.Build();
@@ -90,30 +93,58 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed user
+// Seed default admin + repair any legacy data
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    if (!context.Users.Any())
+    // 1) Re-hash any plain-text passwords (legacy users from before BCrypt)
+    var legacyUsers = context.Users
+        .Where(u => u.PasswordHash != null && !u.PasswordHash.StartsWith("$2"))
+        .ToList();
+    foreach (var user in legacyUsers)
+    {
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(user.PasswordHash);
+    }
+    if (legacyUsers.Count > 0) context.SaveChanges();
+
+    // 2) Patch up legacy instructors that lack Email / IsApproved
+    var legacyInstructors = context.Instructors
+        .Where(i => i.Email == "")
+        .ToList();
+    foreach (var instructor in legacyInstructors)
+    {
+        var slug = new string(instructor.Name
+            .ToLowerInvariant()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+        if (string.IsNullOrEmpty(slug)) slug = $"instructor{instructor.Id}";
+        instructor.Email = $"{slug}@example.com";
+        instructor.IsApproved = true;
+    }
+    if (legacyInstructors.Count > 0) context.SaveChanges();
+
+    // 3) Seed default admin if there isn't one
+    if (!context.Users.Any(u => u.Role == "Admin"))
     {
         context.Users.Add(new User
         {
             Username = "omar",
-            Password = "1234",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("1234"),
             Role = "Admin"
         });
-
         context.SaveChanges();
     }
 
+    // 4) Seed default instructor if none exist
     if (!context.Instructors.Any())
     {
         context.Instructors.Add(new Instructor
         {
-            Name = "Dr. Ahmed"
+            Name = "Dr. Ahmed",
+            Email = "ahmed@example.com",
+            IsApproved = true
         });
-
         context.SaveChanges();
     }
 }

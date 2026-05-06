@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createCourse, getInstructors } from '../services/courseService.js';
-import Alert from '../components/Alert.jsx';
+import { createCourse } from '../../services/courseService.js';
+import { getInstructors } from '../../services/instructorService.js';
+import Alert from '../../components/Alert.jsx';
 
-export default function CourseCreate() {
+export default function AdminCourseCreate() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ title: '', instructorId: '' });
   const [instructors, setInstructors] = useState([]);
@@ -19,7 +20,7 @@ export default function CourseCreate() {
           setForm((prev) => ({ ...prev, instructorId: String(data[0].id) }));
         }
       })
-      .catch((err) => setError(err.message || 'Failed to load instructors.'));
+      .catch(() => setError('Failed to load instructors.'));
   }, []);
 
   const handleChange = (e) => {
@@ -32,30 +33,19 @@ export default function CourseCreate() {
     setError('');
     setSuccess('');
 
-    if (!form.title.trim()) {
-      setError('Title is required.');
-      return;
-    }
-    if (!form.instructorId) {
-      setError('Please select an instructor.');
-      return;
-    }
+    if (!form.title.trim()) return setError('Title is required.');
+    if (!form.instructorId) return setError('Please pick an instructor.');
 
     setSubmitting(true);
     try {
       await createCourse({
         title: form.title.trim(),
-        instructorId: Number(form.instructorId)
+        instructorId: Number(form.instructorId),
       });
-      setSuccess('Course created successfully! Redirecting...');
-      setTimeout(() => navigate('/courses'), 800);
+      setSuccess('Course created. Redirecting...');
+      setTimeout(() => navigate('/admin/courses'), 700);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.response?.data ||
-          err.message ||
-          'Failed to create course.'
-      );
+      setError(err.response?.data?.message || 'Failed to create course.');
     } finally {
       setSubmitting(false);
     }
@@ -65,7 +55,7 @@ export default function CourseCreate() {
     <div style={{ maxWidth: 560 }}>
       <div className="page-header">
         <h1>New Course</h1>
-        <Link to="/courses" className="btn btn-secondary">
+        <Link to="/admin/courses" className="btn btn-secondary">
           Cancel
         </Link>
       </div>
@@ -73,6 +63,16 @@ export default function CourseCreate() {
       <div className="card">
         <Alert type="error">{error}</Alert>
         <Alert type="success">{success}</Alert>
+
+        {instructors.length === 0 && (
+          <Alert type="info">
+            No approved instructors yet. Approve one first under{' '}
+            <Link to="/admin/instructors" className="btn-link">
+              Instructors
+            </Link>
+            .
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -84,8 +84,8 @@ export default function CourseCreate() {
               className="form-control"
               value={form.title}
               onChange={handleChange}
-              placeholder="e.g. Introduction to React"
               required
+              placeholder="e.g. Intro to React"
             />
           </div>
 
@@ -98,6 +98,7 @@ export default function CourseCreate() {
               value={form.instructorId}
               onChange={handleChange}
               required
+              disabled={instructors.length === 0}
             >
               <option value="">-- Select instructor --</option>
               {instructors.map((i) => (
@@ -111,7 +112,7 @@ export default function CourseCreate() {
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={submitting}
+            disabled={submitting || instructors.length === 0}
           >
             {submitting ? 'Creating...' : 'Create Course'}
           </button>

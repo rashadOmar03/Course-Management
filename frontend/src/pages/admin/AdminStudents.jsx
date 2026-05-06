@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getStudents, deleteStudent } from '../services/studentService.js';
-import Loader from '../components/Loader.jsx';
-import Alert from '../components/Alert.jsx';
+import { getStudents, deleteStudent } from '../../services/studentService.js';
+import Loader from '../../components/Loader.jsx';
+import Alert from '../../components/Alert.jsx';
 
-export default function StudentsList() {
+export default function AdminStudents() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,14 +14,9 @@ export default function StudentsList() {
     setLoading(true);
     setError('');
     try {
-      const data = await getStudents();
-      setStudents(data);
+      setStudents(await getStudents());
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          'Failed to load students.'
-      );
+      setError(err.response?.data?.message || 'Failed to load students.');
     } finally {
       setLoading(false);
     }
@@ -32,13 +27,14 @@ export default function StudentsList() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this student?')) return;
+    if (!confirm('Delete this student? Their enrollments will be removed too.'))
+      return;
     try {
       await deleteStudent(id);
-      setInfo('Student deleted successfully.');
+      setInfo('Student deleted.');
       setStudents((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
-      setError(err.message || 'Failed to delete student.');
+      setError(err.response?.data?.message || 'Failed to delete student.');
     }
   };
 
@@ -46,9 +42,9 @@ export default function StudentsList() {
     <div>
       <div className="page-header">
         <h1>Students</h1>
-        <Link to="/students/new" className="btn btn-primary">
-          + New Student
-        </Link>
+        <span className="muted">
+          Students sign themselves up. You can edit or remove them here.
+        </span>
       </div>
 
       <Alert type="error">{error}</Alert>
@@ -57,9 +53,7 @@ export default function StudentsList() {
       {loading ? (
         <Loader text="Loading students..." />
       ) : students.length === 0 ? (
-        <div className="card center muted">
-          No students yet. Add the first one!
-        </div>
+        <div className="card center muted">No students yet.</div>
       ) : (
         <table className="table">
           <thead>
@@ -79,7 +73,7 @@ export default function StudentsList() {
                 <td>
                   <div className="btn-row">
                     <Link
-                      to={`/students/${s.id}`}
+                      to={`/admin/students/${s.id}`}
                       className="btn btn-secondary"
                     >
                       Edit

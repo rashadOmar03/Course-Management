@@ -1,16 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { login } from '../services/authService.js';
+import { login, isAuthenticated, getCurrentUser, homePathForRole } from '../services/authService.js';
 import Alert from '../components/Alert.jsx';
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/students';
 
-  const [form, setForm] = useState({ username: 'omar', password: '1234' });
+  const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      const user = getCurrentUser();
+      navigate(homePathForRole(user?.role), { replace: true });
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,17 +29,12 @@ export default function Login() {
     setSubmitting(true);
     try {
       const data = await login(form.username, form.password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem(
-        'user',
-        JSON.stringify({ username: data.username, role: data.role })
-      );
-      window.dispatchEvent(new Event('auth-change'));
-      navigate(from, { replace: true });
+      const fallback = homePathForRole(data.role);
+      const requested = location.state?.from?.pathname;
+      navigate(requested || fallback, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          err.response?.data ||
           'Login failed. Please check your credentials.'
       );
     } finally {
@@ -42,10 +43,10 @@ export default function Login() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '2rem auto' }}>
-      <div className="card">
-        <h2>Login</h2>
-        <p className="muted">Use the seeded admin account to log in.</p>
+    <div className="auth-shell">
+      <div className="card auth-card">
+        <h2>Welcome back</h2>
+        <p className="muted">Sign in to continue.</p>
 
         <Alert type="error">{error}</Alert>
 
@@ -60,6 +61,7 @@ export default function Login() {
               value={form.username}
               onChange={handleChange}
               required
+              autoFocus
               autoComplete="username"
             />
           </div>
@@ -87,11 +89,12 @@ export default function Login() {
         </form>
 
         <p className="muted" style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
-          Default credentials: <code>omar / 1234</code>
+          Default admin: <code>omar / 1234</code>
         </p>
         <p style={{ marginTop: '0.5rem' }}>
-          <Link to="/" className="btn-link">
-            &larr; Back to home
+          Don&apos;t have an account?{' '}
+          <Link to="/signup" className="btn-link">
+            Sign up
           </Link>
         </p>
       </div>
