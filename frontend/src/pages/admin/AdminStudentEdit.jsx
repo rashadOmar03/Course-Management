@@ -144,7 +144,7 @@ export default function AdminStudentEdit() {
         </form>
       </div>
 
-      <h2 style={{ marginTop: '2rem' }}>Enrolled in</h2>
+      <h2 style={{ marginTop: '2rem' }}>Enrollments</h2>
       {enrollments.length === 0 ? (
         <div className="card center muted">Not enrolled in any course.</div>
       ) : (
@@ -154,6 +154,8 @@ export default function AdminStudentEdit() {
               <th style={{ width: 80 }}>ID</th>
               <th>Course</th>
               <th>Instructor</th>
+              <th style={{ width: 110 }}>Status</th>
+              <th style={{ width: 80 }}>Grade</th>
               <th style={{ width: 140 }}>Action</th>
             </tr>
           </thead>
@@ -164,12 +166,26 @@ export default function AdminStudentEdit() {
                 <td>{e.courseTitle}</td>
                 <td>{e.instructorName}</td>
                 <td>
+                  {e.isApproved ? (
+                    <span className="badge badge-info">Enrolled</span>
+                  ) : (
+                    <span className="badge badge-warn">Pending</span>
+                  )}
+                </td>
+                <td>
+                  {e.grade ? (
+                    <strong>{e.grade}</strong>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+                <td>
                   <button
                     type="button"
                     className="btn btn-danger"
                     onClick={() => handleRemoveEnrollment(e.courseId)}
                   >
-                    Unenroll
+                    {e.isApproved ? 'Unenroll' : 'Cancel'}
                   </button>
                 </td>
               </tr>

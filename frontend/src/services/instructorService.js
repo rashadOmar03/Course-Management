@@ -23,5 +23,8 @@ export const updateInstructor = (id, payload) =>
 export const approveInstructor = (id) =>
   api.post(`/Instructor/${id}/approve`).then((r) => r.data);
 
+export const setInstructorCredentials = (id, payload) =>
+  api.post(`/Instructor/${id}/credentials`, payload).then((r) => r.data);
+
 export const deleteInstructor = (id) =>
   api.delete(`/Instructor/${id}`).then((r) => r.data);

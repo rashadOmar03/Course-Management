@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class StudentController : ControllerBase
 {
     private readonly StudentService _service;
@@ -13,10 +13,14 @@ public class StudentController : ControllerBase
         _service = service;
     }
 
+    // Admins and instructors can both read the student directory.
+    // Editing/deleting students remains admin-only.
     [HttpGet]
+    [Authorize(Roles = "Admin,Instructor")]
     public async Task<IActionResult> Get() => Ok(await _service.GetAll());
 
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Instructor")]
     public async Task<IActionResult> GetById(int id)
     {
         var student = await _service.GetById(id);
@@ -25,6 +29,7 @@ public class StudentController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, CreateStudentDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -35,6 +40,7 @@ public class StudentController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var ok = await _service.Delete(id);

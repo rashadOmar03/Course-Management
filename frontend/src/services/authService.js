@@ -1,10 +1,27 @@
 import api from './api.js';
 
+// One-time cleanup: if older builds saved auth in localStorage, drop it.
+// Tokens now live only in sessionStorage so they don't persist across browser
+// sessions and aren't reachable from other tabs/windows.
+try {
+  if (typeof localStorage !== 'undefined') {
+    if (localStorage.getItem('token') || localStorage.getItem('user')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+  }
+} catch {
+  // ignore (storage disabled)
+}
+
+const TOKEN_KEY = 'token';
+const USER_KEY = 'user';
+
 const persistAuth = (data) => {
   if (!data?.token) return;
-  localStorage.setItem('token', data.token);
-  localStorage.setItem(
-    'user',
+  sessionStorage.setItem(TOKEN_KEY, data.token);
+  sessionStorage.setItem(
+    USER_KEY,
     JSON.stringify({
       userId: data.userId,
       username: data.username,
@@ -14,6 +31,24 @@ const persistAuth = (data) => {
       isApprovedInstructor: data.isApprovedInstructor ?? false,
     })
   );
+  window.dispatchEvent(new Event('auth-change'));
+};
+
+export const getToken = () => {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const clearAuth = () => {
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+  } catch {
+    // ignore
+  }
   window.dispatchEvent(new Event('auth-change'));
 };
 
@@ -37,14 +72,15 @@ export const signupInstructor = async (payload) => {
 
 export const fetchMe = () => api.get('/Auth/me').then((r) => r.data);
 
-export const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  window.dispatchEvent(new Event('auth-change'));
-};
+export const logout = () => clearAuth();
 
 export const getCurrentUser = () => {
-  const raw = localStorage.getItem('user');
+  let raw = null;
+  try {
+    raw = sessionStorage.getItem(USER_KEY);
+  } catch {
+    return null;
+  }
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -53,7 +89,7 @@ export const getCurrentUser = () => {
   }
 };
 
-export const isAuthenticated = () => Boolean(localStorage.getItem('token'));
+export const isAuthenticated = () => Boolean(getToken());
 
 export const hasRole = (...roles) => {
   const user = getCurrentUser();

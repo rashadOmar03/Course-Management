@@ -1,15 +1,46 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchMe } from '../../services/authService.js';
-import { getTeachingEnrollments } from '../../services/enrollmentService.js';
+import { getCourses } from '../../services/courseService.js';
+import { getStudents } from '../../services/studentService.js';
+import {
+  getTeachingEnrollments,
+  setGrade,
+  instructorAddStudent,
+  instructorRemoveStudent,
+} from '../../services/enrollmentService.js';
 import Loader from '../../components/Loader.jsx';
 import Alert from '../../components/Alert.jsx';
 
 export default function InstructorDashboard() {
   const [me, setMe] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [students, setStudents] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [drafts, setDrafts] = useState({});
+  const [savingKey, setSavingKey] = useState(null);
+  const [addPicks, setAddPicks] = useState({});
+  const [addingCourseId, setAddingCourseId] = useState(null);
+
+  const loadData = async (instructorId) => {
+    const [allCourses, allStudents, allEnrollments] = await Promise.all([
+      getCourses(),
+      getStudents(),
+      getTeachingEnrollments(),
+    ]);
+    const myCourses = allCourses.filter((c) => c.instructorId === instructorId);
+    setCourses(myCourses);
+    setStudents(allStudents);
+    setEnrollments(allEnrollments);
+    const next = {};
+    allEnrollments.forEach((e) => {
+      next[`${e.studentId}-${e.courseId}`] = e.grade ?? '';
+    });
+    setDrafts(next);
+  };
 
   useEffect(() => {
     let active = true;
@@ -17,20 +48,93 @@ export default function InstructorDashboard() {
       .then(async (profile) => {
         if (!active) return;
         setMe(profile);
-        if (profile.isApprovedInstructor) {
-          try {
-            setEnrollments(await getTeachingEnrollments());
-          } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load courses.');
-          }
+        if (profile.isApprovedInstructor && profile.instructorId) {
+          await loadData(profile.instructorId);
         }
       })
-      .catch(() => setError('Failed to load profile.'))
+      .catch(() => active && setError('Failed to load profile.'))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
   }, []);
+
+  const enrollmentsByCourse = useMemo(() => {
+    const m = new Map();
+    enrollments.forEach((e) => {
+      if (!m.has(e.courseId)) m.set(e.courseId, []);
+      m.get(e.courseId).push(e);
+    });
+    return m;
+  }, [enrollments]);
+
+  const handleDraftChange = (studentId, courseId, value) => {
+    setDrafts((prev) => ({ ...prev, [`${studentId}-${courseId}`]: value }));
+  };
+
+  const handleSaveGrade = async (studentId, courseId) => {
+    const key = `${studentId}-${courseId}`;
+    setSavingKey(key);
+    setError('');
+    setInfo('');
+    try {
+      const grade = drafts[key]?.trim() || null;
+      await setGrade(studentId, courseId, grade);
+      setEnrollments((prev) =>
+        prev.map((e) =>
+          e.studentId === studentId && e.courseId === courseId
+            ? { ...e, grade }
+            : e
+        )
+      );
+      setInfo('Grade saved.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save grade.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleRemove = async (studentId, courseId, studentName) => {
+    if (!confirm(`Remove ${studentName} from this course?`)) return;
+    setError('');
+    setInfo('');
+    try {
+      await instructorRemoveStudent(studentId, courseId);
+      setEnrollments((prev) =>
+        prev.filter(
+          (e) => !(e.studentId === studentId && e.courseId === courseId)
+        )
+      );
+      setInfo('Student removed.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to remove student.');
+    }
+  };
+
+  const handlePickStudent = (courseId, value) => {
+    setAddPicks((prev) => ({ ...prev, [courseId]: value }));
+  };
+
+  const handleAddStudent = async (courseId) => {
+    const raw = addPicks[courseId];
+    const studentId = raw ? parseInt(raw, 10) : NaN;
+    if (!studentId) return setError('Pick a student to add.');
+
+    setError('');
+    setInfo('');
+    setAddingCourseId(courseId);
+    try {
+      await instructorAddStudent(courseId, studentId);
+      await loadData(me.instructorId);
+      setAddPicks((prev) => ({ ...prev, [courseId]: '' }));
+      setInfo('Student added to course.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add student.');
+    } finally {
+      setAddingCourseId(null);
+    }
+  };
 
   if (loading) return <Loader text="Loading..." />;
 
@@ -52,19 +156,7 @@ export default function InstructorDashboard() {
     );
   }
 
-  // Group enrollments by course
-  const byCourse = new Map();
-  enrollments.forEach((e) => {
-    if (!byCourse.has(e.courseId)) {
-      byCourse.set(e.courseId, {
-        courseId: e.courseId,
-        courseTitle: e.courseTitle,
-        students: [],
-      });
-    }
-    byCourse.get(e.courseId).students.push(e);
-  });
-  const courses = Array.from(byCourse.values());
+  const totalStudents = enrollments.length;
 
   return (
     <div>
@@ -72,56 +164,177 @@ export default function InstructorDashboard() {
         <h1>Welcome, {me?.instructorName || me?.username}</h1>
         <p className="muted">
           You&apos;re teaching <strong>{courses.length}</strong>{' '}
-          course{courses.length === 1 ? '' : 's'}.
+          course{courses.length === 1 ? '' : 's'} with{' '}
+          <strong>{totalStudents}</strong> enrolled student
+          {totalStudents === 1 ? '' : 's'}.
         </p>
       </div>
 
-      <Alert type="error">{error}</Alert>
+      <div className="feature-grid" style={{ marginBottom: '1.5rem' }}>
+        <Link to="/instructor/courses" className="feature feature-link">
+          <h3>Browse courses</h3>
+          <p className="muted">See the full course catalog.</p>
+        </Link>
+        <Link to="/instructor/students" className="feature feature-link">
+          <h3>Students</h3>
+          <p className="muted">Look up student profiles.</p>
+        </Link>
+        <Link to="/instructor/profile" className="feature feature-link">
+          <h3>My profile</h3>
+          <p className="muted">View your account info.</p>
+        </Link>
+      </div>
 
+      <Alert type="error">{error}</Alert>
+      <Alert type="success">{info}</Alert>
+
+      <h2>My courses</h2>
       {courses.length === 0 ? (
         <div className="card center muted">
-          You aren&apos;t assigned to any courses yet. An admin can assign you
-          to a course from the admin dashboard.
+          You don&apos;t have any courses assigned yet. Ask an admin to assign
+          you to a course.
         </div>
       ) : (
-        <div>
-          <h2>My courses</h2>
-          {courses.map((c) => (
-            <div className="card" key={c.courseId} style={{ marginBottom: '1rem' }}>
-              <h3>{c.courseTitle}</h3>
+        courses.map((c) => {
+          const courseEnrollments = enrollmentsByCourse.get(c.id) || [];
+          const enrolledIds = new Set(
+            courseEnrollments.map((e) => e.studentId)
+          );
+          const addable = students.filter((s) => !enrolledIds.has(s.id));
+          const pickedId = addPicks[c.id] ?? '';
+          const adding = addingCourseId === c.id;
+
+          return (
+            <div className="card" key={c.id} style={{ marginBottom: '1rem' }}>
+              <h3 style={{ marginTop: 0 }}>{c.title}</h3>
               <p className="muted">
-                {c.students.length} student{c.students.length === 1 ? '' : 's'} enrolled
+                {courseEnrollments.length} student
+                {courseEnrollments.length === 1 ? '' : 's'} enrolled
               </p>
-              {c.students.length > 0 && (
-                <table className="table" style={{ marginTop: '0.75rem' }}>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  alignItems: 'flex-end',
+                  flexWrap: 'wrap',
+                  marginBottom: '1rem',
+                }}
+              >
+                <div className="form-group" style={{ flex: 1, minWidth: 240, marginBottom: 0 }}>
+                  <label htmlFor={`add-${c.id}`}>Add student</label>
+                  <select
+                    id={`add-${c.id}`}
+                    className="form-control"
+                    value={pickedId}
+                    onChange={(e) => handlePickStudent(c.id, e.target.value)}
+                    disabled={addable.length === 0}
+                  >
+                    <option value="">
+                      {addable.length === 0
+                        ? 'No more students to add'
+                        : 'Pick a student...'}
+                    </option>
+                    {addable.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleAddStudent(c.id)}
+                  disabled={!pickedId || adding}
+                >
+                  {adding ? 'Adding...' : 'Add to course'}
+                </button>
+              </div>
+
+              {courseEnrollments.length > 0 && (
+                <table className="table" style={{ marginTop: '0.25rem' }}>
                   <thead>
                     <tr>
                       <th style={{ width: 80 }}>ID</th>
                       <th>Name</th>
                       <th>Email</th>
+                      <th style={{ width: 220 }}>Grade</th>
+                      <th style={{ width: 220 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {c.students.map((s) => (
-                      <tr key={s.studentId}>
-                        <td>{s.studentId}</td>
-                        <td>{s.studentName}</td>
-                        <td>{s.studentEmail}</td>
-                      </tr>
-                    ))}
+                    {courseEnrollments.map((s) => {
+                      const key = `${s.studentId}-${s.courseId}`;
+                      const draft = drafts[key] ?? '';
+                      const dirty = (draft || '') !== (s.grade || '');
+                      return (
+                        <tr key={key}>
+                          <td>{s.studentId}</td>
+                          <td>{s.studentName}</td>
+                          <td>{s.studentEmail}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={draft}
+                                onChange={(e) =>
+                                  handleDraftChange(
+                                    s.studentId,
+                                    s.courseId,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="A, B+, ..."
+                                maxLength={5}
+                                style={{ maxWidth: 90 }}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() =>
+                                  handleSaveGrade(s.studentId, s.courseId)
+                                }
+                                disabled={!dirty || savingKey === key}
+                              >
+                                {savingKey === key ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="btn-row">
+                              <Link
+                                to={`/instructor/students/${s.studentId}`}
+                                className="btn btn-secondary"
+                              >
+                                Profile
+                              </Link>
+                              <button
+                                type="button"
+                                className="btn btn-danger"
+                                onClick={() =>
+                                  handleRemove(
+                                    s.studentId,
+                                    s.courseId,
+                                    s.studentName
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
             </div>
-          ))}
-        </div>
+          );
+        })
       )}
-
-      <p style={{ marginTop: '1rem' }}>
-        <Link to="/instructor/profile" className="btn-link">
-          View my profile
-        </Link>
-      </p>
     </div>
   );
 }

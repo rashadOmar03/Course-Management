@@ -63,11 +63,9 @@ body {
 }
 
 .navbar-inner {
-  max-width: 960px;
-  margin: 0 auto;
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
 }
@@ -77,6 +75,7 @@ body {
   font-size: 1.15rem;
   color: var(--primary);
   text-decoration: none;
+  margin-right: auto;
 }
 
 .nav-links {
@@ -84,6 +83,7 @@ body {
   gap: 0.25rem;
   flex-wrap: wrap;
   align-items: center;
+  margin-left: auto;
 }
 
 .nav-link {

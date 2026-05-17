@@ -138,6 +138,7 @@ export default function AdminInstructors() {
                   <th style={{ width: 60 }}>ID</th>
                   <th>Name</th>
                   <th>Email</th>
+                  <th>Login</th>
                   <th>Bio</th>
                   <th style={{ width: 200 }}>Actions</th>
                 </tr>
@@ -148,6 +149,13 @@ export default function AdminInstructors() {
                     <td>{i.id}</td>
                     <td>{i.name}</td>
                     <td>{i.email}</td>
+                    <td>
+                      {i.username ? (
+                        <code>{i.username}</code>
+                      ) : (
+                        <span className="badge badge-warn">no login</span>
+                      )}
+                    </td>
                     <td>
                       {i.bio ? (
                         i.bio

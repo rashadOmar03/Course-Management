@@ -84,6 +84,12 @@ export default function Navbar() {
               <NavLink to="/instructor" end className="nav-link">
                 Dashboard
               </NavLink>
+              <NavLink to="/instructor/courses" className="nav-link">
+                Courses
+              </NavLink>
+              <NavLink to="/instructor/students" className="nav-link">
+                Students
+              </NavLink>
               <NavLink to="/instructor/profile" className="nav-link">
                 Profile
               </NavLink>

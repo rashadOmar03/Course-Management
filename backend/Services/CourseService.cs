@@ -20,7 +20,7 @@ public class CourseService
                 Title = c.Title,
                 InstructorId = c.InstructorId,
                 InstructorName = c.Instructor!.Name,
-                EnrollmentCount = c.Enrollments.Count,
+                EnrollmentCount = c.Enrollments.Count(e => e.IsApproved),
             })
             .ToListAsync();
     }
@@ -37,7 +37,7 @@ public class CourseService
                 Title = c.Title,
                 InstructorId = c.InstructorId,
                 InstructorName = c.Instructor!.Name,
-                EnrollmentCount = c.Enrollments.Count,
+                EnrollmentCount = c.Enrollments.Count(e => e.IsApproved),
             })
             .FirstOrDefaultAsync();
     }
@@ -65,6 +65,7 @@ public class CourseService
             EnrollmentCount = 0,
         }, null);
     }
+
 
     public async Task<(bool Ok, string? Error)> Update(int id, CreateCourseDto dto)
     {

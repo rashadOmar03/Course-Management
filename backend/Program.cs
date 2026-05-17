@@ -93,7 +93,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed default admin + repair any legacy data
+// Repair legacy data + optional defaults (no default admin)
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -124,19 +124,7 @@ using (var scope = app.Services.CreateScope())
     }
     if (legacyInstructors.Count > 0) context.SaveChanges();
 
-    // 3) Seed default admin if there isn't one
-    if (!context.Users.Any(u => u.Role == "Admin"))
-    {
-        context.Users.Add(new User
-        {
-            Username = "omar",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("1234"),
-            Role = "Admin"
-        });
-        context.SaveChanges();
-    }
-
-    // 4) Seed default instructor if none exist
+    // 3) Seed default instructor if none exist
     if (!context.Instructors.Any())
     {
         context.Instructors.Add(new Instructor

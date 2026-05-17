@@ -88,9 +88,6 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="muted" style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
-          Default admin: <code>omar / 1234</code>
-        </p>
         <p style={{ marginTop: '0.5rem' }}>
           Don&apos;t have an account?{' '}
           <Link to="/signup" className="btn-link">

@@ -27,29 +27,42 @@ export default function StudentDashboard() {
 
   if (loading) return <Loader text="Loading your dashboard..." />;
 
+  const approved = enrollments.filter((e) => e.isApproved);
+  const pending = enrollments.filter((e) => !e.isApproved);
+
   return (
     <div>
       <div className="hero">
         <h1>Welcome, {me?.studentName || me?.username}</h1>
         <p className="muted">
-          You&apos;re enrolled in <strong>{enrollments.length}</strong>{' '}
-          course{enrollments.length === 1 ? '' : 's'}.
+          You&apos;re enrolled in <strong>{approved.length}</strong>{' '}
+          course{approved.length === 1 ? '' : 's'}
+          {pending.length > 0 && (
+            <>
+              {' '}
+              and have <strong>{pending.length}</strong> pending request
+              {pending.length === 1 ? '' : 's'}
+            </>
+          )}
+          .
         </p>
       </div>
 
       <div className="feature-grid">
         <Link to="/student/courses" className="feature feature-link">
           <h3>Browse courses</h3>
-          <p className="muted">See the full catalog and enroll yourself.</p>
+          <p className="muted">
+            See the full catalog and request enrollment.
+          </p>
         </Link>
         <Link to="/student/my-courses" className="feature feature-link">
           <h3>My courses</h3>
-          <p className="muted">Courses you&apos;re enrolled in.</p>
-          <p className="stat">{enrollments.length}</p>
+          <p className="muted">Courses you&apos;re enrolled in and your grades.</p>
+          <p className="stat">{approved.length}</p>
         </Link>
         <Link to="/student/profile" className="feature feature-link">
           <h3>My profile</h3>
-          <p className="muted">View and update your details.</p>
+          <p className="muted">View your details.</p>
         </Link>
       </div>
     </div>

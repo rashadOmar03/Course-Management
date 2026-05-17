@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getEnrollments,
+  approveEnrollment,
   enroll,
   unenroll,
 } from '../../services/enrollmentService.js';
@@ -45,10 +46,16 @@ export default function AdminEnrollments() {
     load();
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!filterCourse) return enrollments;
+  const pending = useMemo(
+    () => enrollments.filter((e) => !e.isApproved),
+    [enrollments]
+  );
+
+  const approvedFiltered = useMemo(() => {
+    const approved = enrollments.filter((e) => e.isApproved);
+    if (!filterCourse) return approved;
     const cid = Number(filterCourse);
-    return enrollments.filter((e) => e.courseId === cid);
+    return approved.filter((e) => e.courseId === cid);
   }, [enrollments, filterCourse]);
 
   const handleEnroll = async (e) => {
@@ -65,6 +72,39 @@ export default function AdminEnrollments() {
       await load();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to enroll.');
+    }
+  };
+
+  const handleApprove = async (studentId, courseId) => {
+    setError('');
+    setInfo('');
+    try {
+      await approveEnrollment(studentId, courseId);
+      setInfo('Request approved.');
+      setEnrollments((prev) =>
+        prev.map((e) =>
+          e.studentId === studentId && e.courseId === courseId
+            ? { ...e, isApproved: true }
+            : e
+        )
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to approve.');
+    }
+  };
+
+  const handleReject = async (studentId, courseId) => {
+    if (!confirm('Reject this enrollment request?')) return;
+    try {
+      await unenroll(studentId, courseId);
+      setEnrollments((prev) =>
+        prev.filter(
+          (e) => !(e.studentId === studentId && e.courseId === courseId)
+        )
+      );
+      setInfo('Request rejected.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reject.');
     }
   };
 
@@ -96,8 +136,61 @@ export default function AdminEnrollments() {
       <Alert type="error">{error}</Alert>
       <Alert type="success">{info}</Alert>
 
+      <h2>
+        Pending requests{' '}
+        {pending.length > 0 && (
+          <span className="badge badge-warn">{pending.length}</span>
+        )}
+      </h2>
+      {pending.length === 0 ? (
+        <div className="card center muted">No pending requests.</div>
+      ) : (
+        <table className="table" style={{ marginBottom: '1.5rem' }}>
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Email</th>
+              <th>Course</th>
+              <th>Instructor</th>
+              <th style={{ width: 220 }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pending.map((e) => (
+              <tr key={`${e.studentId}-${e.courseId}`}>
+                <td>{e.studentName}</td>
+                <td>{e.studentEmail}</td>
+                <td>{e.courseTitle}</td>
+                <td>{e.instructorName}</td>
+                <td>
+                  <div className="btn-row">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleApprove(e.studentId, e.courseId)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={() => handleReject(e.studentId, e.courseId)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
       <div className="card">
-        <h3>Enroll a student</h3>
+        <h3>Enroll a student directly</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Skips the request flow — the student is enrolled immediately.
+        </p>
         <form onSubmit={handleEnroll} className="row-form">
           <select
             className="form-control"
@@ -136,7 +229,7 @@ export default function AdminEnrollments() {
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
-        <h3>All enrollments</h3>
+        <h3>Approved enrollments</h3>
         <div className="form-group">
           <label htmlFor="filter">Filter by course</label>
           <select
@@ -154,7 +247,7 @@ export default function AdminEnrollments() {
           </select>
         </div>
 
-        {filtered.length === 0 ? (
+        {approvedFiltered.length === 0 ? (
           <div className="center muted">No enrollments to show.</div>
         ) : (
           <table className="table">
@@ -164,16 +257,24 @@ export default function AdminEnrollments() {
                 <th>Email</th>
                 <th>Course</th>
                 <th>Instructor</th>
+                <th style={{ width: 80 }}>Grade</th>
                 <th style={{ width: 140 }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((e) => (
+              {approvedFiltered.map((e) => (
                 <tr key={`${e.studentId}-${e.courseId}`}>
                   <td>{e.studentName}</td>
                   <td>{e.studentEmail}</td>
                   <td>{e.courseTitle}</td>
                   <td>{e.instructorName}</td>
+                  <td>
+                    {e.grade ? (
+                      <strong>{e.grade}</strong>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"

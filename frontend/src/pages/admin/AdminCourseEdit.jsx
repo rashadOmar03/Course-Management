@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { getCourse, updateCourse, deleteCourse } from '../../services/courseService.js';
 import { getInstructors } from '../../services/instructorService.js';
-import { getEnrollmentsByCourse, unenroll } from '../../services/enrollmentService.js';
+import {
+  getEnrollmentsByCourse,
+  approveEnrollment,
+  unenroll,
+} from '../../services/enrollmentService.js';
 import Loader from '../../components/Loader.jsx';
 import Alert from '../../components/Alert.jsx';
 
@@ -89,18 +93,38 @@ export default function AdminCourseEdit() {
     }
   };
 
-  const handleRemoveStudent = async (studentId) => {
-    if (!confirm('Remove this student from the course?')) return;
+  const handleApprove = async (studentId) => {
+    try {
+      await approveEnrollment(studentId, Number(id));
+      setEnrollments((prev) =>
+        prev.map((e) =>
+          e.studentId === studentId ? { ...e, isApproved: true } : e
+        )
+      );
+      setSuccess('Request approved.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to approve.');
+    }
+  };
+
+  const handleRemoveStudent = async (studentId, isApproved) => {
+    const msg = isApproved
+      ? 'Remove this student from the course?'
+      : 'Reject this enrollment request?';
+    if (!confirm(msg)) return;
     try {
       await unenroll(studentId, Number(id));
       setEnrollments((prev) => prev.filter((e) => e.studentId !== studentId));
-      setSuccess('Student removed from course.');
+      setSuccess(isApproved ? 'Student removed from course.' : 'Request rejected.');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to remove student.');
     }
   };
 
   if (loading) return <Loader text="Loading course..." />;
+
+  const pending = enrollments.filter((e) => !e.isApproved);
+  const approved = enrollments.filter((e) => e.isApproved);
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -164,8 +188,54 @@ export default function AdminCourseEdit() {
         </form>
       </div>
 
+      {pending.length > 0 && (
+        <>
+          <h2 style={{ marginTop: '2rem' }}>
+            Pending requests{' '}
+            <span className="badge badge-warn">{pending.length}</span>
+          </h2>
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: 80 }}>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th style={{ width: 220 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((e) => (
+                <tr key={e.studentId}>
+                  <td>{e.studentId}</td>
+                  <td>{e.studentName}</td>
+                  <td>{e.studentEmail}</td>
+                  <td>
+                    <div className="btn-row">
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => handleApprove(e.studentId)}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => handleRemoveStudent(e.studentId, false)}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
       <h2 style={{ marginTop: '2rem' }}>Enrolled students</h2>
-      {enrollments.length === 0 ? (
+      {approved.length === 0 ? (
         <div className="card center muted">No students enrolled yet.</div>
       ) : (
         <table className="table">
@@ -174,20 +244,28 @@ export default function AdminCourseEdit() {
               <th style={{ width: 80 }}>ID</th>
               <th>Name</th>
               <th>Email</th>
+              <th style={{ width: 80 }}>Grade</th>
               <th style={{ width: 140 }}>Action</th>
             </tr>
           </thead>
           <tbody>
-            {enrollments.map((e) => (
+            {approved.map((e) => (
               <tr key={e.studentId}>
                 <td>{e.studentId}</td>
                 <td>{e.studentName}</td>
                 <td>{e.studentEmail}</td>
                 <td>
+                  {e.grade ? (
+                    <strong>{e.grade}</strong>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+                <td>
                   <button
                     type="button"
                     className="btn btn-danger"
-                    onClick={() => handleRemoveStudent(e.studentId)}
+                    onClick={() => handleRemoveStudent(e.studentId, true)}
                   >
                     Remove
                   </button>

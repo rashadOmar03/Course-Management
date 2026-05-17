@@ -47,7 +47,7 @@ public class InstructorController : ControllerBase
 
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> Update(int id, CreateInstructorDto dto)
+    public async Task<IActionResult> Update(int id, UpdateInstructorDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
@@ -63,6 +63,18 @@ public class InstructorController : ControllerBase
         var ok = await _service.Approve(id);
         if (!ok) return NotFound();
         return Ok(new { message = "Instructor approved." });
+    }
+
+    // Admin-only: create or replace the login credentials for an instructor.
+    [HttpPost("{id}/credentials")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SetCredentials(int id, SetInstructorCredentialsDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var (ok, error) = await _service.SetCredentials(id, dto);
+        if (!ok) return BadRequest(new { message = error });
+        return Ok(new { message = "Credentials updated." });
     }
 
     [HttpDelete("{id}")]

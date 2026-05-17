@@ -9,8 +9,26 @@ const api = axios.create({
   }
 });
 
+const safeGetToken = () => {
+  try {
+    return sessionStorage.getItem('token');
+  } catch {
+    return null;
+  }
+};
+
+const safeClearAuth = () => {
+  try {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new Event('auth-change'));
+};
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = safeGetToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -21,9 +39,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.dispatchEvent(new Event('auth-change'));
+      safeClearAuth();
       if (window.location.pathname !== '/login') {
         window.location.replace('/login');
       }

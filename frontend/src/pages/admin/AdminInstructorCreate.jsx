@@ -5,7 +5,13 @@ import Alert from '../../components/Alert.jsx';
 
 export default function AdminInstructorCreate() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', bio: '' });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    bio: '',
+    username: '',
+    password: '',
+  });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -18,15 +24,24 @@ export default function AdminInstructorCreate() {
     e.preventDefault();
     setError('');
 
-    if (!form.name.trim() || !form.email.trim())
-      return setError('Name and email are required.');
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const username = form.username.trim();
+    const password = form.password;
+
+    if (!name || !email) return setError('Name and email are required.');
+    if (!username) return setError('Username is required.');
+    if (password.length < 4)
+      return setError('Password must be at least 4 characters.');
 
     setSubmitting(true);
     try {
       await createInstructor({
-        name: form.name.trim(),
-        email: form.email.trim(),
+        name,
+        email,
         bio: form.bio.trim(),
+        username,
+        password,
       });
       navigate('/admin/instructors');
     } catch (err) {
@@ -47,7 +62,8 @@ export default function AdminInstructorCreate() {
 
       <div className="card">
         <Alert type="info">
-          Admin-created instructors are automatically approved.
+          Admin-created instructors are automatically approved and given a login
+          account so they can sign in right away.
         </Alert>
         <Alert type="error">{error}</Alert>
 
@@ -86,6 +102,36 @@ export default function AdminInstructorCreate() {
               value={form.bio}
               onChange={handleChange}
               rows={3}
+            />
+          </div>
+
+          <h3 style={{ marginTop: '1.5rem' }}>Login</h3>
+          <div className="form-group">
+            <label htmlFor="username">Username *</label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              className="form-control"
+              value={form.username}
+              onChange={handleChange}
+              required
+              maxLength={50}
+              autoComplete="off"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password *</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              className="form-control"
+              value={form.password}
+              onChange={handleChange}
+              required
+              minLength={4}
+              autoComplete="new-password"
             />
           </div>
 

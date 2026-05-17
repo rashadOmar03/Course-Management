@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { getCourses } from '../../services/courseService.js';
 import {
   getMyEnrollments,
-  selfEnroll,
+  requestEnrollment,
   selfUnenroll,
 } from '../../services/enrollmentService.js';
 import { getInstructors } from '../../services/instructorService.js';
@@ -42,10 +42,11 @@ export default function StudentBrowseCourses() {
     load();
   }, []);
 
-  const enrolledIds = useMemo(
-    () => new Set(mine.map((e) => e.courseId)),
-    [mine]
-  );
+  const myByCourseId = useMemo(() => {
+    const m = new Map();
+    mine.forEach((e) => m.set(e.courseId, e));
+    return m;
+  }, [mine]);
 
   const instructorById = useMemo(() => {
     const m = new Map();
@@ -53,33 +54,35 @@ export default function StudentBrowseCourses() {
     return m;
   }, [instructors]);
 
-  const handleEnroll = async (courseId) => {
+  const handleRequest = async (courseId) => {
     setBusyId(courseId);
     setError('');
     setInfo('');
     try {
-      await selfEnroll(courseId);
-      setInfo('Enrolled.');
-      const fresh = await getMyEnrollments();
-      setMine(fresh);
+      await requestEnrollment(courseId);
+      setInfo('Enrollment request sent. Waiting for admin approval.');
+      setMine(await getMyEnrollments());
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to enroll.');
+      setError(err.response?.data?.message || 'Failed to send request.');
     } finally {
       setBusyId(null);
     }
   };
 
-  const handleUnenroll = async (courseId) => {
-    if (!confirm('Unenroll from this course?')) return;
+  const handleCancel = async (courseId, isApproved) => {
+    const msg = isApproved
+      ? 'Unenroll from this course?'
+      : 'Cancel your enrollment request?';
+    if (!confirm(msg)) return;
     setBusyId(courseId);
     setError('');
     setInfo('');
     try {
       await selfUnenroll(courseId);
-      setInfo('Unenrolled.');
+      setInfo(isApproved ? 'Unenrolled.' : 'Request cancelled.');
       setMine((prev) => prev.filter((e) => e.courseId !== courseId));
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to unenroll.');
+      setError(err.response?.data?.message || 'Failed to update enrollment.');
     } finally {
       setBusyId(null);
     }
@@ -104,8 +107,9 @@ export default function StudentBrowseCourses() {
       ) : (
         <div className="course-grid">
           {courses.map((c) => {
-            const enrolled = enrolledIds.has(c.id);
+            const enrollment = myByCourseId.get(c.id);
             const ins = instructorById.get(c.instructorId);
+            const busy = busyId === c.id;
             return (
               <div key={c.id} className="course-card">
                 <h3>{c.title}</h3>
@@ -116,26 +120,49 @@ export default function StudentBrowseCourses() {
                   <p className="muted course-bio">{ins.bio}</p>
                 )}
                 <div className="muted">
-                  {c.enrollmentCount} student{c.enrollmentCount === 1 ? '' : 's'} enrolled
+                  {c.enrollmentCount} student
+                  {c.enrollmentCount === 1 ? '' : 's'} enrolled
                 </div>
+
+                {enrollment && (
+                  <div>
+                    {enrollment.isApproved ? (
+                      <span className="badge badge-info">Enrolled</span>
+                    ) : (
+                      <span className="badge badge-warn">Pending approval</span>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ marginTop: 'auto' }}>
-                  {enrolled ? (
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      onClick={() => handleUnenroll(c.id)}
-                      disabled={busyId === c.id}
-                    >
-                      {busyId === c.id ? 'Working...' : 'Unenroll'}
-                    </button>
-                  ) : (
+                  {!enrollment && (
                     <button
                       type="button"
                       className="btn btn-primary"
-                      onClick={() => handleEnroll(c.id)}
-                      disabled={busyId === c.id}
+                      onClick={() => handleRequest(c.id)}
+                      disabled={busy}
                     >
-                      {busyId === c.id ? 'Working...' : 'Enroll'}
+                      {busy ? 'Sending...' : 'Request enrollment'}
+                    </button>
+                  )}
+                  {enrollment && !enrollment.isApproved && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => handleCancel(c.id, false)}
+                      disabled={busy}
+                    >
+                      {busy ? 'Working...' : 'Cancel request'}
+                    </button>
+                  )}
+                  {enrollment && enrollment.isApproved && (
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={() => handleCancel(c.id, true)}
+                      disabled={busy}
+                    >
+                      {busy ? 'Working...' : 'Unenroll'}
                     </button>
                   )}
                 </div>

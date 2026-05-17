@@ -95,10 +95,7 @@ The API will start at:
 - HTTPS: `https://localhost:7075`
 - Swagger UI: `http://localhost:5063/swagger`
 
-A default admin user is seeded on first run:
-
-- **username:** `omar`
-- **password:** `1234`
+There is no default admin user. Create the first admin in the database (or use an existing `Users` row with `Role = Admin` and a BCrypt password hash) before using admin-only features.
 
 ### 2) Frontend
 
@@ -127,7 +124,7 @@ VITE_API_URL=http://localhost:5063/api
 | Path              | Page             | Description                                      |
 | ----------------- | ---------------- | ------------------------------------------------ |
 | `/`               | Home             | Welcome page with navigation                     |
-| `/login`          | Login            | JWT login form (admin: `omar` / `1234`)          |
+| `/login`          | Login            | JWT login form                                 |
 | `/courses`        | Courses list     | All courses, with edit/delete actions            |
 | `/courses/new`    | Create course    | Form to add a new course                         |
 | `/courses/:id`    | Edit course      | View & edit a single course; delete it           |
@@ -194,11 +191,6 @@ Screenshots live in the `Screenshots/` folder at the repo root.
 
 ---
 
-## Login Credentials
+## Login
 
-Seeded automatically on first run:
-
-- **username:** `omar`
-- **password:** `1234`
-
-These are required to access the Students pages (the `StudentController` is `[Authorize]`).
+Use credentials for users you have created. Admin-only routes (for example `StudentController`) require a user with `Role = Admin`.

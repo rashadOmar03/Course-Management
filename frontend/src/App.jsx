@@ -30,6 +30,9 @@ import StudentProfile from './pages/student/StudentProfile.jsx';
 
 import InstructorDashboard from './pages/instructor/InstructorDashboard.jsx';
 import InstructorProfile from './pages/instructor/InstructorProfile.jsx';
+import InstructorCourses from './pages/instructor/InstructorCourses.jsx';
+import InstructorStudents from './pages/instructor/InstructorStudents.jsx';
+import InstructorStudentProfile from './pages/instructor/InstructorStudentProfile.jsx';
 
 function RootRedirect() {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
@@ -176,6 +179,30 @@ export default function App() {
             element={
               <ProtectedRoute roles={['Instructor']}>
                 <InstructorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses"
+            element={
+              <ProtectedRoute roles={['Instructor']}>
+                <InstructorCourses />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/students"
+            element={
+              <ProtectedRoute roles={['Instructor']}>
+                <InstructorStudents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/students/:id"
+            element={
+              <ProtectedRoute roles={['Instructor']}>
+                <InstructorStudentProfile />
               </ProtectedRoute>
             }
           />
